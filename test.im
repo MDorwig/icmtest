@@ -1,4 +1,19 @@
 
+void AddObject(list l,string o)
+{
+	l += (list)o;
+}
+
+string gitrev()
+{
+	list res ;
+	string version ;
+	echo(0);
+	res = `"git name-rev --name-only HEAD"`;
+	res += `"git rev-parse --verify --short HEAD"`;
+	version = substr(res[0],0,strlen(res[0])-1) + "-" + substr(res[1],0,strlen(res[1])-1) ;
+	return version;
+}
 
 void main (int argc,list argv)
 {
@@ -13,21 +28,30 @@ void main (int argc,list argv)
   	string cleancmd ;
     printf("argc=",argc," argv=",argv,"\n");
     for (i = 1 ; i < sizeof(argv) ; i++)
+    {
     	if (argv[i] == "clean")
+    	{
     		clean = 1;
-    	
-    objfiles += (list)"file1.o";
-    objfiles += (list)"file2.o";
+    	}
+    }
+    AddObject(objfiles,bindir+"/file1.o");
+    AddObject(objfiles,bindir+"/file2.o");
+    
+    printf("objectfiles=\"",objfiles,"\n");
+    
+    printf("git rev :\"",gitrev(),"\"\n");
+    return;
+    
     exec("mkdir","-p " + bindir);
-    cfiles = makelist ("*.c", younger,"libmyprog.a");            // cfiles is now a list of all files to recompile
     if (clean)
     {
     	exec("rm -rf ",bindir+"/*");
     }
-    if (cfiles)                                 // if there are any files..
+    
+    if (cfiles)                                 
     {
     		printf(cfiles,"\n");
-        for (i = 0; i < sizeof (cfiles) ; i++)  // recompile them
+        for (i = 0; i < sizeof (cfiles) ; i++)  
         {
             sourcefile = element (i, cfiles);   // get the name from the list
             objfile = change_ext(bindir + "/" + sourcefile,"o");
@@ -36,6 +60,10 @@ void main (int argc,list argv)
             	//printf("source: ",sourcefile," objfile: ", objfile,"\n");
             	exec ("ppc_6xx-gcc", "-c -Wall ", sourcefile + " -o "+objfile); // recompile
             }
+        }
+        if (stat(bindir+"/test"))
+        {
+        	
         }
     }
 }
