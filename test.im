@@ -1,0 +1,44 @@
+
+
+void main (int argc,list argv)
+{
+    list cfiles;                                 // list of .c files
+    int  i;                                      // counter variable
+    int clean;
+    
+    string sourcefile;                             // string with name of 1 source file
+    string objfile;
+    string bindir = "bin";
+    list objfiles ;
+  	string cleancmd ;
+    printf("argc=",argc," argv=",argv,"\n");
+    for (i = 1 ; i < sizeof(argv) ; i++)
+    	if (argv[i] == "clean")
+    		clean = 1;
+    	
+    objfiles += (list)"file1.o";
+    objfiles += (list)"file2.o";
+    exec("mkdir","-p " + bindir);
+    cfiles = makelist ("*.c", younger,"libmyprog.a");            // cfiles is now a list of all files to recompile
+    if (clean)
+    {
+    	exec("rm -rf ",bindir+"/*");
+    }
+    if (cfiles)                                 // if there are any files..
+    {
+    		printf(cfiles,"\n");
+        for (i = 0; i < sizeof (cfiles) ; i++)  // recompile them
+        {
+            sourcefile = element (i, cfiles);   // get the name from the list
+            objfile = change_ext(bindir + "/" + sourcefile,"o");
+            if (sourcefile younger objfile)
+            {
+            	//printf("source: ",sourcefile," objfile: ", objfile,"\n");
+            	exec ("ppc_6xx-gcc", "-c -Wall ", sourcefile + " -o "+objfile); // recompile
+            }
+        }
+    }
+}
+
+
+
