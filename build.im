@@ -202,7 +202,7 @@ void Compile(int dryrun,string prefix,string options,string src,string obj)
 	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
 	cmd =strformat("%1g++ %2 -c %3 -o %4 %5",prefix,options,src,obj,depopt);
 	if (!getecho())
-		printf(VT100_Fg_Yellow "compiling %1" VT100_Reset "\n",obj);
+		printf(VT100_Fg_White "compiling %1" VT100_Reset "\n",obj);
 	maybe_exec(dryrun,cmd);
 }
 
@@ -225,7 +225,7 @@ void Link(int dryrun,string prefix,string options,list objects,string output)
 	string cmd ;
 	cmd = strformat("%1g++ -o %2 %3 %4",prefix,output,objects,options);
 	if (!getecho())
-		printf(VT100_Fg_Yellow "linking   %1" VT100_Reset "\n",output);
+		printf(VT100_Fg_White "linking   %1" VT100_Reset "\n",output);
 	maybe_exec(dryrun,cmd);
 }
 
@@ -298,7 +298,7 @@ void main (int argc,list argv)
 					j = strfind(arg,"--host=");
 					if (j == 0)
 					{
-						host = substr(arg,7,arg.length-7);
+						host = substr(arg,7,arg.length);
 						crosscompile = host+"-";
 					}
 					else 
@@ -306,17 +306,29 @@ void main (int argc,list argv)
 						j = strfind(arg,"--var=");
 						if (j == 0)
 						{
-							variant = substr(arg,6,arg.length-6);
+							variant = substr(arg,6,arg.length);
 							if (variant != "debug" && variant != "release")
 							{
 								printf("you must say --var=debug or --var=release\n");
 								exit(1);
 							}
 						}
-						else
+						else 
 						{
-							printf("unknown argument \"%1\"\n",arg);
-							exit(1);
+							j = strfind(arg,"--bin=");
+							if (j == 0)
+							{
+								outputfile = substr(arg,6,arg.length);
+								if (outputfile.length == 0)
+								{
+									printf("you must specify an outputfilename\n");
+								}
+							}
+							else
+							{
+								printf("unknown argument \"%1\"\n",arg);
+								exit(1);
+							}
 						}
 					}
 				}
@@ -350,8 +362,8 @@ void main (int argc,list argv)
     	maybe_exec(false,strformat("mkdir -p %1",bindir));
     
     if (outputfile.length == 0)
-    	outputfile = strformat("%1/output",bindir);
-    
+    	outputfile="output";
+   	outputfile = strformat("%1/%2",bindir,outputfile);
     if (clean)
     {
     	rm(dryrun,"-rf",bindir+"/*");
