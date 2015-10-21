@@ -1,0 +1,382 @@
+#!/usr/bin/icmake -qi
+
+#define true  1
+#define false 0
+#define bool int
+
+#define VT100_Reset      "\33[0m"
+#define VT100_Fg_Black   "\33[30m"
+#define VT100_Fg_Red     "\33[31m"
+#define VT100_Fg_Green   "\33[32m"
+#define VT100_Fg_Yellow  "\33[33m"
+#define VT100_Fg_Blue    "\33[34m"
+#define VT100_Fg_Magenta "\33[35m"
+#define VT100_Fg_Cyan    "\33[36m"
+#define VT100_Fg_White   "\33[37m"
+
+#define VT100_Bg_Black   "\33[40m"
+#define VT100_Bg_Red     "\33[41m"
+#define VT100_Bg_Green   "\33[42m"
+#define VT100_Bg_Yellow  "\33[43m"
+#define VT100_Bg_Blue    "\33[44m"
+#define VT100_Bg_Magenta "\33[45m"
+#define VT100_Bg_Cyan    "\33[46m"
+#define VT100_Bg_White   "\33[47m"
+
+int echostate;
+int trace;
+
+bool setecho(bool b)
+{
+	bool r ;
+	r = echostate;
+	echostate=b;
+	echo(b);
+	return r;
+}
+
+bool getecho()
+{
+	return echostate == ON;
+}
+
+list capture(string cmd)
+{
+	if (trace)
+		printf("capture(%1)\n",cmd);
+	return `cmd`;
+}
+
+void maybe_exec(int dryrun,string cmd)
+{
+	if (!dryrun)
+		exec(cmd);
+	else
+		printf("dry:%1\n",cmd);
+}
+
+void rm(int dryrun,string opt,string args)
+{
+	string cmd ;
+	cmd = strformat("rm %1 %2",opt,args);
+	maybe_exec(dryrun,cmd);
+}
+
+void mkdir(int dryrun,string opt,string args)
+{
+	string cmd ;
+	cmd = strformat("mkdir %1 %2",opt,args);
+	maybe_exec(dryrun,cmd);
+}
+
+#ifdef 0
+int FindDep(list dep,string file)
+{
+	int i ;
+	for (i = 0 ; i < dep.length ; i++)
+	{
+		if (dep[i] == file)
+			return 1 ;
+	}
+	return 0;
+}
+
+void AddDependency(list dep,string obj,string file)
+{
+	if (FindDep(dep,file) || obj == file)
+		return ;
+	printf("adding %1 as dependency for %2\n",file,obj);
+	dep += (list)file;
+}
+#endif
+
+/*
+ * this function parses a compiler generated dependecy file (*.d)
+ * dependency files contain lines in the form:
+ * target1 target2: dependency1 dependency2 ...
+ * if the dependencyfile or the objectfile do not exist the function returns true
+ * if the targets do not exist the function returns true
+ * if one of the dependenies is younger than the objectfile the function returns true 
+ */
+bool MustBuild(int trace,string objfile)
+{
+	string depfile;
+	string f;
+	string s ;
+	string rule;
+	string text;
+	
+	list targets ;
+	list line;
+	list deps;
+	
+	int i ;
+	depfile = change_ext(objfile,"d");
+	if (!exists(objfile))
+	{
+		if (trace)
+			printf("Must build %1 because it does not exist\n",objfile);
+		return true ;
+	}
+	if (!exists(depfile))
+	{
+		if (trace)
+			printf("Must build %2 because %1 does not exist\n",depfile,objfile);
+		return true ;
+	}
+	while(1)
+	{
+		line = fgets(depfile,(int)line[1]);
+		if (line.length == 0)
+			break ;
+		if (trace)
+			printf("read %1",line[0]);
+		text = trim(line[0]);
+		if (text.length > 0)
+		{
+			if (text[text.length-1] == "\\")
+			{
+				rule += trim(substr(text,0,text.length-1));
+				rule += " ";
+			}
+			else
+			{
+				rule += text;
+				if (trace)
+					printf("rule %1\n",rule);
+				i = strfind(rule,":");
+				if (i != -1)
+				{
+					f = substr(rule,0,i);
+					s = trim(substr(rule,i+1,rule.length-i));
+					targets = strtok(f," ");
+					for (i = 0 ; i < targets.length ; i++)
+					{
+						if (!exists(targets[i]))
+						{
+							if (trace)
+								printf("Must build %2 because %1 does not exist\n",targets[i],objfile);
+							return true;
+						}
+					}
+					deps = strtok(s," ");
+					for (i = 0 ; i < deps.length ; i++)
+					{
+						if (trace)
+							printf("check %1 against %2\n",deps[i],objfile);
+						if (deps[i] younger objfile)
+						{
+							if (trace)
+								printf("Must build %2 because %1 is younger\n",deps[i],objfile);
+							return true ;
+						}
+					}
+				}
+				rule = "";
+			}
+		}
+	}
+	if (trace)
+		printf("Must not build %1\n",objfile);
+	return false;
+}
+
+
+string gitrev()
+{
+	list res ;
+	int ec ;
+	string version ;
+	ec = setecho(OFF);
+	res  = capture("git name-rev --name-only HEAD");
+	res += capture("git rev-parse --verify --short HEAD");
+	echo(ec);
+	version = strformat("%1-%2",trimright(res[0]),trimright(res[1])) ;
+	return version;
+}
+
+void Compile(int dryrun,string prefix,string options,string src,string obj)
+{
+	string dfile,depopt,cmd;
+	dfile= change_ext(obj,"d");
+	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
+	cmd =strformat("%1g++ %2 -c %3 -o %4 %5",prefix,options,src,obj,depopt);
+	if (!getecho())
+		printf(VT100_Fg_Yellow "compiling %1" VT100_Reset "\n",obj);
+	maybe_exec(dryrun,cmd);
+}
+
+list getsources()
+{
+	list src ;
+	list line ;
+	while(1)
+	{
+		line = fgets("SOURCES",(int)line[1]);
+		if (line.length == 0)
+			break ;
+		src += (list)line[0];
+	}
+	return src;
+}
+
+void Link(int dryrun,string prefix,string options,list objects,string output)
+{
+	string cmd ;
+	cmd = strformat("%1g++ -o %2 %3 %4",prefix,output,objects,options);
+	if (!getecho())
+		printf(VT100_Fg_Yellow "linking   %1" VT100_Reset "\n",output);
+	maybe_exec(dryrun,cmd);
+}
+
+bool CheckCompiler(string cc)
+{
+	int es ;
+	int i ;
+	list res ;
+	string output;
+	string gccver;
+	es = setecho(OFF);
+	if (trace)
+		printf("ckeck for compiler %1gcc\n",cc);
+	res = capture(cc+"gcc --version 2>&1");
+	for(i = 0 ; i < res.length ; i++)
+		output += res[i];
+	res = strtok(output,"\n");
+	i = strfind(res[0],"(GCC)");
+	if (i != -1)
+	{
+		if (trace)
+			printf("found %1\n",res[0]);
+	}
+	setecho(es);
+	return i != -1 ;
+}
+
+void main (int argc,list argv)
+{
+    list srcfiles;                                 // list of source files
+    list objfiles;
+    int i;
+    int j;
+    int clean;
+    int dryrun;
+    string arg;
+    string dir;
+    string sourcefile;                             // string with name of 1 source file
+    string objfile;
+    string bindir = "bin";
+  	string cleancmd ;
+    string crosscompile;
+    string host;
+    string variant = "debug";
+    string versionfile = "version.h";
+    string gitversion;
+    string outputfile;
+
+    setecho(OFF);
+    
+    for (i = 1 ; i < sizeof(argv) ; i++)
+    {
+    	arg = argv[i];
+    	if (arg.length)
+    	{
+				if (arg == "clean")
+				{
+					clean = 1;
+				}
+				else if (arg == "-dry")
+				{
+					dryrun = ON;
+				}
+				else if (arg == "-trace")
+				{
+					trace = true;
+				}
+				else
+				{
+					j = strfind(arg,"--host=");
+					if (j == 0)
+					{
+						host = substr(arg,7,arg.length-7);
+						crosscompile = host+"-";
+					}
+					else 
+					{
+						j = strfind(arg,"--var=");
+						if (j == 0)
+						{
+							variant = substr(arg,6,arg.length-6);
+							if (variant != "debug" && variant != "release")
+							{
+								printf("you must say --var=debug or --var=release\n");
+								exit(1);
+							}
+						}
+						else
+						{
+							printf("unknown argument \"%1\"\n",arg);
+							exit(1);
+						}
+					}
+				}
+    	}
+    }
+    if (host.length == 0)
+    {
+    	host = "x86";
+    }
+    if (crosscompile.length != 0 && CheckCompiler(crosscompile) == false)
+    {
+    	printf("compiler %1gcc does not exist\n",crosscompile);
+    	exit(1);
+    }
+    srcfiles = getsources();
+    if (trace)
+    	printf("srcfiles:%1\n",srcfiles);
+
+    gitversion = gitrev();
+    if (trace)
+    	printf("git rev :\"%1\"\n",gitversion);
+    rm(dryrun,"-f",versionfile);
+    fprintf(versionfile,"#ifndef VERSION_H_INCLUDED\n");
+    fprintf(versionfile,"#define VERSION_H_INCLUDED\n\n");
+    fprintf(versionfile,"#define GIT_VERSION \"%1\"\n\n",gitversion);
+    fprintf(versionfile,"#endif\n");
+    if (host.length != 0)
+    	bindir = strformat("%1/%2",bindir,host);
+    bindir += strformat("/%1",variant);
+    if (!exists(bindir))
+    	maybe_exec(false,strformat("mkdir -p %1",bindir));
+    
+    if (outputfile.length == 0)
+    	outputfile = strformat("%1/output",bindir);
+    
+    if (clean)
+    {
+    	rm(dryrun,"-rf",bindir+"/*");
+    }
+    else
+    {
+			if (srcfiles.length)
+			{
+					for (i = 0; i < srcfiles.length ; i++)  
+					{
+							sourcefile = trim(element (i, srcfiles));   // get the name from the list
+							objfile = change_ext(strformat("%1/%2",bindir,sourcefile),"o");
+							dir = get_path(objfile);
+							if (!exists(dir))
+								mkdir(false,"-p",dir);
+							if (MustBuild(trace,objfile))
+							{
+								Compile(dryrun,crosscompile,"-Wall -Werror -Wno-multichar -fsigned-char -I./",sourcefile,objfile);
+							}
+							objfiles += (list)objfile;
+					}
+					Link(dryrun,crosscompile,"",objfiles,outputfile);
+			}
+    }
+}
+
+
+
