@@ -4,6 +4,7 @@
 #define false 0
 #define bool int
 
+#ifdef COLORED
 #define VT100_Reset      "\33[0m"
 #define VT100_Fg_Black   "\33[30m"
 #define VT100_Fg_Red     "\33[31m"
@@ -22,16 +23,45 @@
 #define VT100_Bg_Magenta "\33[45m"
 #define VT100_Bg_Cyan    "\33[46m"
 #define VT100_Bg_White   "\33[47m"
+#else
+#define VT100_Reset
+#define VT100_Fg_Black
+#define VT100_Fg_Red
+#define VT100_Fg_Green
+#define VT100_Fg_Yellow
+#define VT100_Fg_Blue
+#define VT100_Fg_Magenta
+#define VT100_Fg_Cyan
+#define VT100_Fg_White
 
-int echostate;
+#define VT100_Bg_Black
+#define VT100_Bg_Red
+#define VT100_Bg_Green
+#define VT100_Bg_Yellow
+#define VT100_Bg_Blue
+#define VT100_Bg_Magenta
+#define VT100_Bg_Cyan
+#define VT100_Bg_White
+#endif
+
+int echostate = ON;
 int trace;
 
 bool setecho(bool b)
 {
 	bool r ;
+  string s ;
 	r = echostate;
 	echostate=b;
 	echo(b);
+#ifdef DEBUG
+	if (echostate)
+	  s = "ON" ;
+	else
+	  s ="OFF";
+	printf("echo is %1\n",s);
+
+#endif
 	return r;
 }
 
@@ -50,7 +80,7 @@ list capture(string cmd)
 void maybe_exec(int dryrun,string cmd)
 {
 	if (!dryrun)
-		exec(cmd);
+		exec(P_CHECK,cmd);
 	else
 		printf("dry:%1\n",cmd);
 }
@@ -68,27 +98,6 @@ void mkdir(int dryrun,string opt,string args)
 	cmd = strformat("mkdir %1 %2",opt,args);
 	maybe_exec(dryrun,cmd);
 }
-
-#ifdef 0
-int FindDep(list dep,string file)
-{
-	int i ;
-	for (i = 0 ; i < dep.length ; i++)
-	{
-		if (dep[i] == file)
-			return 1 ;
-	}
-	return 0;
-}
-
-void AddDependency(list dep,string obj,string file)
-{
-	if (FindDep(dep,file) || obj == file)
-		return ;
-	printf("adding %1 as dependency for %2\n",file,obj);
-	dep += (list)file;
-}
-#endif
 
 /*
  * this function parses a compiler generated dependecy file (*.d)
@@ -190,7 +199,7 @@ string gitrev()
 	ec = setecho(OFF);
 	res  = capture("git name-rev --name-only HEAD");
 	res += capture("git rev-parse --verify --short HEAD");
-	echo(ec);
+	setecho(ec);
 	version = strformat("%1-%2",trimright(res[0]),trimright(res[1])) ;
 	return version;
 }
@@ -198,24 +207,82 @@ string gitrev()
 void Compile(int dryrun,string prefix,string options,string src,string obj)
 {
 	string dfile,depopt,cmd;
+  string cxx ;
 	dfile= change_ext(obj,"d");
+	if (get_ext(src) == "c")
+	  cxx = "gcc" ;
+	else
+	  cxx = "g++" ;
 	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
-	cmd =strformat("%1g++ %2 -c %3 -o %4 %5",prefix,options,src,obj,depopt);
+	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,src,obj,depopt);
 	if (!getecho())
 		printf(VT100_Fg_White "compiling %1" VT100_Reset "\n",obj);
 	maybe_exec(dryrun,cmd);
 }
 
-list getsources()
+list readline(string file,list pos)
+{
+}
+
+list GetSources(string file,string config,string host)
 {
 	list src ;
-	list line ;
-	while(1)
+	list pos ;
+	string text;
+	string section;
+  string line ;
+  string part ;
+  string config_section;
+  string host_section;
+	int i ;
+	config_section = strformat("%1_FILES",config);
+	host_section   = strformat("%1_FILES",host);
+	if (trace)
 	{
-		line = fgets("SOURCES",(int)line[1]);
-		if (line.length == 0)
-			break ;
-		src += (list)line[0];
+	  printf("config_section=%1\n",config_section);
+    printf("host_section  =%1\n",host_section);
+	}
+  while(1)
+  {
+    pos = fgets(file,(int)pos[1]);
+    if (pos.length == 0)
+    {
+      break;
+    }
+    part = trimright(pos[0]);
+    if (part.length != 0)
+    {
+      if (part[part.length-1] == "\\")
+      {
+        if (line.length)
+          line +=" ";
+        line += trim(substr(part,0,part.length-2));
+      }
+      else
+      {
+        if (line.length != 0)
+          line += " " ;
+        line += trim(part);
+        if (line.length)
+        {
+          if (line[0] != "#")
+          {
+            if (i = strfind(line,"="))
+            {
+              section=trim(substr(line,0,i));
+              text = trim(substr(line,i+1,line.length));
+              if (trace)
+                printf("%1=%2\n",section,text);
+              if (section == "COMMON_FILES" || section == config_section || section == host_section)
+              {
+                src += strtok(text," \t");
+              }
+            }
+          }
+        }
+        line = "";
+      }
+    }
 	}
 	return src;
 }
@@ -253,9 +320,22 @@ bool CheckCompiler(string cc)
 	return i != -1 ;
 }
 
+string MachineName()
+{
+  list res ;
+  int e = setecho(OFF);
+  res = capture("uname -m");
+  setecho(e);
+  return trim(res[0]);
+}
+
+#define CONFIG_OPT    "--config="
+#define HOST_OPT      "--host="
+#define ARTIFACT_OPT  "--artifact="
+
 void main (int argc,list argv)
 {
-    list srcfiles;                                 // list of source files
+    list srcfiles;
     list objfiles;
     int i;
     int j;
@@ -263,20 +343,20 @@ void main (int argc,list argv)
     int dryrun;
     string arg;
     string dir;
-    string sourcefile;                             // string with name of 1 source file
+    string sourcefile;
     string objfile;
-    string bindir = "bin";
+    string bindir       = "bin";
   	string cleancmd ;
     string crosscompile;
     string host;
-    string variant = "debug";
-    string versionfile = "version.h";
+    string config       = "debug";
+    string versionfile  = "version.h";
     string gitversion;
     string outputfile;
 
-    setecho(OFF);
+    setecho(ON);
     
-    for (i = 1 ; i < sizeof(argv) ; i++)
+    for (i = 1 ; i < argv.length ; i++)
     {
     	arg = argv[i];
     	if (arg.length)
@@ -293,57 +373,45 @@ void main (int argc,list argv)
 				{
 					trace = true;
 				}
-				else
+				else if ((j = strfind(arg,HOST_OPT)) == 0)
 				{
-					j = strfind(arg,"--host=");
-					if (j == 0)
+					host = substr(arg,HOST_OPT.length,arg.length);
+					crosscompile = host+"-";
+				}
+				else if ((j = strfind(arg,CONFIG_OPT)) == 0)
+				{
+					config = substr(arg,CONFIG_OPT.length,arg.length);
+					if (config.length == 0)
 					{
-						host = substr(arg,7,arg.length);
-						crosscompile = host+"-";
-					}
-					else 
-					{
-						j = strfind(arg,"--var=");
-						if (j == 0)
-						{
-							variant = substr(arg,6,arg.length);
-							if (variant != "debug" && variant != "release")
-							{
-								printf("you must say --var=debug or --var=release\n");
-								exit(1);
-							}
-						}
-						else 
-						{
-							j = strfind(arg,"--bin=");
-							if (j == 0)
-							{
-								outputfile = substr(arg,6,arg.length);
-								if (outputfile.length == 0)
-								{
-									printf("you must specify an outputfilename\n");
-								}
-							}
-							else
-							{
-								printf("unknown argument \"%1\"\n",arg);
-								exit(1);
-							}
-						}
+						printf("you must specify a configuration like %1debug or %1release\n",CONFIG_OPT);
+						exit(1);
 					}
 				}
+				else if ((j = strfind(arg,ARTIFACT_OPT)) == 0)
+				{
+					outputfile = substr(arg,ARTIFACT_OPT.length,arg.length);
+					if (outputfile.length == 0)
+					{
+						printf("you must specify an artifact\n");
+					}
+				}
+				else
+				{
+					printf("unknown argument \"%1\"\n",arg);
+					exit(1);
+				}
     	}
-    }
-    if (host.length == 0)
-    {
-    	host = "x86";
     }
     if (crosscompile.length != 0 && CheckCompiler(crosscompile) == false)
     {
     	printf("compiler %1gcc does not exist\n",crosscompile);
     	exit(1);
     }
-    srcfiles = getsources();
+    if (host.length == 0)
+    {
+      host = MachineName();
+    }
+    srcfiles = GetSources("SOURCES",config,host);
     if (trace)
     	printf("srcfiles:%1\n",srcfiles);
 
@@ -355,12 +423,12 @@ void main (int argc,list argv)
     fprintf(versionfile,"#define VERSION_H_INCLUDED\n\n");
     fprintf(versionfile,"#define GIT_VERSION \"%1\"\n\n",gitversion);
     fprintf(versionfile,"#endif\n");
-    if (host.length != 0)
-    	bindir = strformat("%1/%2",bindir,host);
-    bindir += strformat("/%1",variant);
+    bindir += strformat("/%1",config);
+    if (trace)
+      printf("bindir = %1\n",bindir);
     if (!exists(bindir))
     	maybe_exec(false,strformat("mkdir -p %1",bindir));
-    
+
     if (outputfile.length == 0)
     	outputfile="output";
    	outputfile = strformat("%1/%2",bindir,outputfile);
@@ -385,7 +453,7 @@ void main (int argc,list argv)
 							}
 							objfiles += (list)objfile;
 					}
-					Link(dryrun,crosscompile,"",objfiles,outputfile);
+					Link(dryrun,crosscompile,"-lm",objfiles,outputfile);
 			}
     }
 }

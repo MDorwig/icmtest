@@ -1,0 +1,39 @@
+wie soll ein makefile für ./build.im aussehen ?
+
+was wird benötigt ?
+1) der Compiler-prefix "--host=" für Crosscompilierung
+2) der Name der Konfiguration "--config="
+3) der Name des Compilierungsergebnisses "--artifact="
+4) Optionen für --host sowie für --config
+5) Artifacttyp -lib oder -shared 
+ein Abschnitt für Quellen die unabhängig von --host und --config sind
+
+z.B:
+COMMON_FILES = file1.c file2.c \
+file3.c 
+
+ein Abschnitt für Quellen die zu einer bestimmten Konfiguration gehören
+xxxx_FILES=filex.c 
+wobei xxxx der Name der Configuration ist
+
+ein Abschnitt für Quellen für einen bestimmten Cross-Compiler
+
+yyyy_FILES=filey.c
+
+wobei yyyy der Compilerprefix ist
+
+Optionen
+
+COMMON_Cxx_FLAGS
+xxxx_Cxx_FLAGS
+yyyy_Cxx_FLAGS
+
+Beispiel für --config=ppc-debug --host=ppc_6xx
+COMMON_FILES = file1.c file2.c
+ppc-debug_FILES = ppcfile1.c ppcfile2
+ppc_6xx_FILES = x.S b.cpp
+COMMON_cpp_FLAGS = -I./include/cpp -Werror -Wno-multichar
+COMMON_c_FLAGS = - -I./include/c -Wall 
+ppc-debug_FLAGS= -fsigned-char -g3 -O0
+ppc-release_FLAGS = -g0 -Os
+ppc_6xx_FLAGS = -O3

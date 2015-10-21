@@ -1,3 +1,9 @@
-data.cpp
-dfile.c
-src1/cfile.c
+COMMON_FILES=data.cpp dfile.c src1/cfile.c
+#
+# files for --config=x86-debug
+#
+x86-debug_FILES=dbg.c dbg1.c	
+#
+# files for --host=x86_64
+#
+x86_64_FILES=c64.c
