@@ -1,32 +1,14 @@
-
+[ARTIFACT COMMON]
+	test
 [FILES COMMON]
-	data.cpp 
-	dfile.c 
-	src1/cfile.c
+	src/main.cpp
 
 [CXXFLAGS COMMON]
--DTEST=0  -DDIES -DJENES
 -I./
-
-[CFLAGS COMMON]
--DTEST=1
--I./
-#
-# files for --config=x86-debug
-#
-[FILES debug]
-	dbg.c 
-	dbg1.c
 
 [CXXFLAGS debug]
--g -o0
-[CFLAGS   debug]
-#
-# files for --host=i686
-#
-[FILES i686]
-i686.c
-[LDFLAGS COMMON]
--Map ${artifact}
-[LDFLAGS debug]
--g3
+-g3 -o0 -DDEBUG
+
+[CFLAGS COMMON]
+
+[FILES debug]

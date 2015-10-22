@@ -53,6 +53,13 @@ int 	trace;
 list  cflags;
 list  cxxflags;
 list  ldflags;
+string artifact;
+
+void fatalerror(string msg)
+{
+  printf(VT100_Fg_Red "%1" VT100_Reset,msg);
+  exit(1);
+}
 
 bool setecho(bool b)
 {
@@ -84,12 +91,14 @@ list capture(string cmd)
 	return `cmd`;
 }
 
-void maybe_exec(int dryrun,string cmd)
+int maybe_exec(int dryrun,string cmd)
 {
+  int result ;
 	if (!dryrun)
-		exec(P_CHECK,cmd);
+		result = exec(P_CHECK,cmd);
 	else
 		printf("dry:%1\n",cmd);
+	return result;
 }
 
 void rm(int dryrun,string opt,string args)
@@ -217,6 +226,8 @@ void Compile(int dryrun,string prefix,string src,string obj)
 	string options;
   string cxx ;
 	dfile= change_ext(obj,"d");
+	if (!exists(dfile))
+	  maybe_exec(dryrun,strformat("touch %1",dfile));
 	if (get_ext(src) == "c")
 	{
 	  cxx = "gcc" ;
@@ -227,14 +238,19 @@ void Compile(int dryrun,string prefix,string src,string obj)
 	  cxx = "g++" ;
 		options = strformat("%1",cxxflags);
 	}
-	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
-	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,src,obj,depopt);
+	depopt = strformat("-MMD -MP -MF%1 -MT%2",dfile,obj);
+	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,depopt,obj,src);
 	if (!getecho())
 		printf(VT100_Fg_White "compiling %1" VT100_Reset "\n",obj);
-	maybe_exec(dryrun,cmd);
+	if (maybe_exec(dryrun,cmd) != 0)
+	{
+	  if (exists(obj))
+	    rm(dryrun,"",obj);
+	  exit(1);
+	}
 }
 
-list ParseMakefileLine(string line)
+list ParseSection(string line)
 {
 	list lst ;
 	int i ;
@@ -273,13 +289,13 @@ list ReadMakefile(string file,string config,string host)
     {
     	if (line[0] == "[")
     	{
-    		sec_cfg = ParseMakefileLine(line);
+    		sec_cfg = ParseSection(line);
     		if (sec_cfg.length == 0)
   			{
-  				printf("syntax error in %1 %2:%3",file,linecnt,line);
-  				exit(1);
+  				fatalerror(strformat("syntax error in %1 %2:%3",file,linecnt,line));
   			}
-  			printf("section=%1\n",sec_cfg);
+    		if (trace)
+    		  printf("section=%1\n",sec_cfg);
     	}
     	else if (sec_cfg[1] == "COMMON" || sec_cfg[1] == config || sec_cfg[1] == host)
 			{
@@ -298,6 +314,14 @@ list ReadMakefile(string file,string config,string host)
 				else if (sec_cfg[0] == "LDFLAGS")
 				{
 					ldflags += strtok(line," \t");
+				}
+				else if (sec_cfg[0] == "ARTIFACT")
+				{
+				  artifact = line;
+				}
+				else
+				{
+				  fatalerror(strformat("unknown section %1 in %2\n",sec_cfg[0],file));
 				}
 			}
     }
@@ -349,7 +373,6 @@ string MachineName()
 
 #define CONFIG_OPT    "--config="
 #define HOST_OPT      "--host="
-#define ARTIFACT_OPT  "--artifact="
 
 void main (int argc,list argv)
 {
@@ -370,10 +393,10 @@ void main (int argc,list argv)
     string config       = "debug";
     string versionfile  = "version.h";
     string gitversion;
-    string outputfile;
     string makefile = "makefile.icm";
 
-    setecho(ON);
+    setecho(OFF);
+
     for (i = 1 ; i < argv.length-1 ; i++)
     {
     	arg = argv[i];
@@ -417,15 +440,6 @@ void main (int argc,list argv)
 						exit(1);
 					}
 				}
-				else if ((j = strfind(arg,ARTIFACT_OPT)) == 0)
-				{
-					outputfile = substr(arg,ARTIFACT_OPT.length,arg.length);
-					if (outputfile.length == 0)
-					{
-						printf("you must specify an artifact\n");
-						exit(1);
-					}
-				}
 				else
 				{
 					printf("unknown argument \"%1\"\n",arg);
@@ -448,11 +462,15 @@ void main (int argc,list argv)
       host = MachineName();
     }
     
-    
     srcfiles = ReadMakefile(makefile,config,host);
     if (trace)
     {
     	printf("srcfiles:%1\ncflags=%2\ncxxflags=%3\nldflags=%4\n",srcfiles,cflags,cxxflags,ldflags);
+    }
+    if (artifact.length == 0)
+    {
+      fatalerror(strformat("i can't find a [ARTIFACT ] section in %1\n",makefile));
+      exit(1);
     }
     gitversion = gitrev();
     if (trace)
@@ -468,15 +486,17 @@ void main (int argc,list argv)
     if (!exists(bindir))
     	maybe_exec(false,strformat("mkdir -p %1",bindir));
 
-    if (outputfile.length == 0)
-    	outputfile="output";
-   	outputfile = strformat("%1/%2",bindir,outputfile);
+    if (artifact.length == 0)
+    	artifact="output";
+   	artifact = strformat("%1/%2",bindir,artifact);
     if (clean)
     {
+      printf(VT100_Fg_Yellow "Clean configuration %1 for host %2 in %3\n" VT100_Reset,config,host,bindir);
     	rm(dryrun,"-rf",bindir+"/*");
     }
     else
     {
+      printf(VT100_Fg_Yellow "Building configuration %1 for host %2 in %3\n" VT100_Reset,config,host,bindir);
 			if (srcfiles.length)
 			{
 					for (i = 0; i < srcfiles.length ; i++)  
@@ -492,7 +512,7 @@ void main (int argc,list argv)
 							}
 							objfiles += (list)objfile;
 					}
-					Link(dryrun,crosscompile,objfiles,outputfile);
+					Link(dryrun,crosscompile,objfiles,artifact);
 			}
     }
 }
