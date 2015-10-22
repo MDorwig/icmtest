@@ -50,6 +50,9 @@
 
 int 	echostate = ON;
 int 	trace;
+list  cflags;
+list  cxxflags;
+list  ldflags;
 
 bool setecho(bool b)
 {
@@ -208,15 +211,22 @@ string gitrev()
 	return version;
 }
 
-void Compile(int dryrun,string prefix,string options,string src,string obj)
+void Compile(int dryrun,string prefix,string src,string obj)
 {
 	string dfile,depopt,cmd;
+	string options;
   string cxx ;
 	dfile= change_ext(obj,"d");
 	if (get_ext(src) == "c")
+	{
 	  cxx = "gcc" ;
+	  options = strformat("%1",cflags);
+	}
 	else
+	{
 	  cxx = "g++" ;
+		options = strformat("%1",cxxflags);
+	}
 	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
 	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,src,obj,depopt);
 	if (!getecho())
@@ -224,24 +234,31 @@ void Compile(int dryrun,string prefix,string options,string src,string obj)
 	maybe_exec(dryrun,cmd);
 }
 
+list ParseMakefileLine(string line)
+{
+	list lst ;
+	int i ;
+	i = strfind(line,"]");
+	if (i != -1)
+	{
+		lst = strtok(substr(line,1,i-1)," \t");
+	}
+}
 
-list GetSources(string file,string config,string host)
+list ReadMakefile(string file,string config,string host)
 {
 	list src ;
 	list pos ;
-	string text;
+	list sec_cfg;
 	string section;
   string line ;
-  string part ;
-  string config_section;
-  string host_section;
+
+  int linecnt ;
 	int i ;
-	config_section = strformat("%1_FILES",config);
-	host_section   = strformat("%1_FILES",host);
 	if (trace)
 	{
-	  printf("config_section=%1\n",config_section);
-    printf("host_section  =%1\n",host_section);
+	  printf("config=%1\n",config);
+    printf("host=%1\n",host);
 	}
   while(1)
   {
@@ -250,48 +267,48 @@ list GetSources(string file,string config,string host)
     {
       break;
     }
-    part = trimright(pos[0]);
-    if (part.length != 0)
+    linecnt++;
+    line = trim(pos[0]);
+    if (line.length != 0 && line[0] != "#") 
     {
-      if (part[part.length-1] == "\\")
-      {
-        if (line.length)
-          line +=" ";
-        line += trim(substr(part,0,part.length-2));
-      }
-      else
-      {
-        if (line.length != 0)
-          line += " " ;
-        line += trim(part);
-        if (line.length)
-        {
-          if (line[0] != "#")
-          {
-            if (i = strfind(line,"="))
-            {
-              section=trim(substr(line,0,i));
-              text = trim(substr(line,i+1,line.length));
-              if (trace)
-                printf("%1=%2\n",section,text);
-              if (section == "COMMON_FILES" || section == config_section || section == host_section)
-              {
-                src += strtok(text," \t");
-              }
-            }
-          }
-        }
-        line = "";
-      }
+    	if (line[0] == "[")
+    	{
+    		sec_cfg = ParseMakefileLine(line);
+    		if (sec_cfg.length == 0)
+  			{
+  				printf("syntax error in %1 %2:%3",file,linecnt,line);
+  				exit(1);
+  			}
+  			printf("section=%1\n",sec_cfg);
+    	}
+    	else if (sec_cfg[1] == "COMMON" || sec_cfg[1] == config || sec_cfg[1] == host)
+			{
+				if (sec_cfg[0] == "FILES")
+				{
+					src += strtok(line," \t");
+				}
+				else if (sec_cfg[0] == "CFLAGS")
+				{
+					cflags += strtok(line," \t");
+				}
+				else if (sec_cfg[0] == "CXXFLAGS")
+				{
+					cxxflags += strtok(line," \t");
+				}
+				else if (sec_cfg[0] == "LDFLAGS")
+				{
+					ldflags += strtok(line," \t");
+				}
+			}
     }
 	}
 	return src;
 }
 
-void Link(int dryrun,string prefix,string options,list objects,string output)
+void Link(int dryrun,string prefix,list objects,string output)
 {
 	string cmd ;
-	cmd = strformat("%1g++ -o %2 %3 %4",prefix,output,objects,options);
+	cmd = strformat("%1g++ -o %2 %3 %4",prefix,output,objects,strformat("%1",ldflags));
 	if (!getecho())
 		printf(VT100_Fg_White "linking   %1" VT100_Reset "\n",output);
 	maybe_exec(dryrun,cmd);
@@ -432,10 +449,11 @@ void main (int argc,list argv)
     }
     
     
-    srcfiles = GetSources(makefile,config,host);
+    srcfiles = ReadMakefile(makefile,config,host);
     if (trace)
-    	printf("srcfiles:%1\n",srcfiles);
-
+    {
+    	printf("srcfiles:%1\ncflags=%2\ncxxflags=%3\nldflags=%4\n",srcfiles,cflags,cxxflags,ldflags);
+    }
     gitversion = gitrev();
     if (trace)
     	printf("git rev :\"%1\"\n",gitversion);
@@ -470,11 +488,11 @@ void main (int argc,list argv)
 								mkdir(false,"-p",dir);
 							if (MustBuild(trace,objfile))
 							{
-								Compile(dryrun,crosscompile,"-Wall -Werror -Wno-multichar -fsigned-char -I./",sourcefile,objfile);
+								Compile(dryrun,crosscompile,sourcefile,objfile);
 							}
 							objfiles += (list)objfile;
 					}
-					Link(dryrun,crosscompile,"-lm",objfiles,outputfile);
+					Link(dryrun,crosscompile,objfiles,outputfile);
 			}
     }
 }

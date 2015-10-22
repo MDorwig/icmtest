@@ -1,9 +1,32 @@
-COMMON_FILES=data.cpp dfile.c src1/cfile.c
+
+[FILES COMMON]
+	data.cpp 
+	dfile.c 
+	src1/cfile.c
+
+[CXXFLAGS COMMON]
+-DTEST=0  -DDIES -DJENES
+-I./
+
+[CFLAGS COMMON]
+-DTEST=1
+-I./
 #
 # files for --config=x86-debug
 #
-x86-debug_FILES=dbg.c dbg1.c
+[FILES debug]
+	dbg.c 
+	dbg1.c
+
+[CXXFLAGS debug]
+-g -o0
+[CFLAGS   debug]
 #
-# files for --host=x86_64
+# files for --host=i686
 #
-x86_64_FILES=c64.c
+[FILES i686]
+i686.c
+[LDFLAGS COMMON]
+-Map ${artifact}
+[LDFLAGS debug]
+-g3
