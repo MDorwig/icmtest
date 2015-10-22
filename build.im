@@ -4,6 +4,10 @@
 #define false 0
 #define bool int
 
+#ifdef ECLIPSE
+#include "icmaketypes.h"
+#endif
+#define COLORED
 #ifdef COLORED
 #define VT100_Reset      "\33[0m"
 #define VT100_Fg_Black   "\33[30m"
@@ -44,8 +48,8 @@
 #define VT100_Bg_White
 #endif
 
-int echostate = ON;
-int trace;
+int 	echostate = ON;
+int 	trace;
 
 bool setecho(bool b)
 {
@@ -220,9 +224,6 @@ void Compile(int dryrun,string prefix,string options,string src,string obj)
 	maybe_exec(dryrun,cmd);
 }
 
-list readline(string file,list pos)
-{
-}
 
 list GetSources(string file,string config,string host)
 {
@@ -353,10 +354,10 @@ void main (int argc,list argv)
     string versionfile  = "version.h";
     string gitversion;
     string outputfile;
+    string makefile = "makefile.icm";
 
     setecho(ON);
-    
-    for (i = 1 ; i < argv.length ; i++)
+    for (i = 1 ; i < argv.length-1 ; i++)
     {
     	arg = argv[i];
     	if (arg.length)
@@ -364,6 +365,18 @@ void main (int argc,list argv)
 				if (arg == "clean")
 				{
 					clean = 1;
+				}
+				else if (arg == "-f")
+				{
+					if (i+1 < argv.length-1)
+					{
+						makefile = argv[++i];
+					}
+					else
+					{
+						printf(VT100_Fg_Red "you must specify the name of a controlfile" VT100_Reset "\n");
+						exit(1);
+					}
 				}
 				else if (arg == "-dry")
 				{
@@ -393,6 +406,7 @@ void main (int argc,list argv)
 					if (outputfile.length == 0)
 					{
 						printf("you must specify an artifact\n");
+						exit(1);
 					}
 				}
 				else
@@ -401,6 +415,11 @@ void main (int argc,list argv)
 					exit(1);
 				}
     	}
+    }
+    if (!exists(makefile))
+    {
+    	printf("%1 does not exist\n",makefile);
+    	exit(1);
     }
     if (crosscompile.length != 0 && CheckCompiler(crosscompile) == false)
     {
@@ -411,7 +430,9 @@ void main (int argc,list argv)
     {
       host = MachineName();
     }
-    srcfiles = GetSources("SOURCES",config,host);
+    
+    
+    srcfiles = GetSources(makefile,config,host);
     if (trace)
     	printf("srcfiles:%1\n",srcfiles);
 
@@ -457,6 +478,4 @@ void main (int argc,list argv)
 			}
     }
 }
-
-
 

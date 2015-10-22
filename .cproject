@@ -25,6 +25,9 @@
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.829790296" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.cross.cpp.compiler.1028844958" name="Cross G++ Compiler" superClass="cdt.managedbuild.tool.gnu.cross.cpp.compiler">
+								<option id="gnu.cpp.compiler.option.preprocessor.def.1067111703" superClass="gnu.cpp.compiler.option.preprocessor.def" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="ECLIPSE=1"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.933018975" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.linker.1404458969" name="Cross GCC Linker" superClass="cdt.managedbuild.tool.gnu.cross.c.linker"/>
@@ -51,6 +54,9 @@
 		</cconfiguration>
 		<cconfiguration id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1838843541">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1838843541" moduleId="org.eclipse.cdt.core.settings" name="ppc_6xx-debug">
+				<macros>
+					<stringMacro name="ECLIPSE" type="VALUE_TEXT" value="1"/>
+				</macros>
 				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.GNU_ELF" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -99,6 +105,9 @@
 		</cconfiguration>
 		<cconfiguration id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.309677871">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.309677871" moduleId="org.eclipse.cdt.core.settings" name="bfin-debug">
+				<macros>
+					<stringMacro name="ECLIPSE" type="VALUE_TEXT" value="1"/>
+				</macros>
 				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.GNU_ELF" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -147,6 +156,9 @@
 		</cconfiguration>
 		<cconfiguration id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1838843541.167514443">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1838843541.167514443" moduleId="org.eclipse.cdt.core.settings" name="powerpc-debug">
+				<macros>
+					<stringMacro name="ECLIPSE" type="VALUE_TEXT" value="1"/>
+				</macros>
 				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.GNU_ELF" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -194,37 +206,31 @@
 			<storageModule moduleId="packages"/>
 		</cconfiguration>
 	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.723439170;cdt.managedbuild.config.gnu.exe.release.723439170.;cdt.managedbuild.tool.gnu.c.compiler.exe.release.1356106068;cdt.managedbuild.tool.gnu.c.compiler.input.283176805">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.212109135;cdt.managedbuild.config.gnu.exe.debug.212109135.;cdt.managedbuild.tool.gnu.c.compiler.exe.debug.1113573450;cdt.managedbuild.tool.gnu.c.compiler.input.74726635">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		</scannerConfigBuildInfo>
-	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="ictest.null.316675902" name="ictest"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
-		<configuration configurationName="ppc_6xx-debug">
-			<resource resourceType="PROJECT" workspacePath="/icmtest"/>
-		</configuration>
-		<configuration configurationName="bfin-debug">
-			<resource resourceType="PROJECT" workspacePath="/icmtest"/>
-		</configuration>
-		<configuration configurationName="powerpc-debug">
-			<resource resourceType="PROJECT" workspacePath="/icmtest"/>
-		</configuration>
 		<configuration configurationName="Default">
 			<resource resourceType="PROJECT" workspacePath="/ictest"/>
-		</configuration>
-		<configuration configurationName="ppc_6xx">
-			<resource resourceType="PROJECT" workspacePath="/icmtest"/>
 		</configuration>
 		<configuration configurationName="x86-debug">
 			<resource resourceType="PROJECT" workspacePath="/icmtest"/>
 		</configuration>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.723439170;cdt.managedbuild.config.gnu.exe.release.723439170.;cdt.managedbuild.tool.gnu.c.compiler.exe.release.1356106068;cdt.managedbuild.tool.gnu.c.compiler.input.283176805">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.1220182839;cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1383879761;cdt.managedbuild.tool.gnu.cross.cpp.compiler.1028844958;cdt.managedbuild.tool.gnu.cpp.compiler.input.933018975">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.1220182839;cdt.managedbuild.toolchain.gnu.cross.base.1220182839.1383879761;cdt.managedbuild.tool.gnu.cross.c.compiler.714006260;cdt.managedbuild.tool.gnu.c.compiler.input.829790296">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.212109135;cdt.managedbuild.config.gnu.exe.debug.212109135.;cdt.managedbuild.tool.gnu.c.compiler.exe.debug.1113573450;cdt.managedbuild.tool.gnu.c.compiler.input.74726635">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>
