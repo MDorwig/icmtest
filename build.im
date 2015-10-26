@@ -243,6 +243,7 @@ list ParseMakefileLine(string line)
 	{
 		lst = strtok(substr(line,1,i-1)," \t");
 	}
+	return lst;
 }
 
 list ReadMakefile(string file,string config,string host)
