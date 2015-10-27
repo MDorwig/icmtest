@@ -7,52 +7,72 @@
 #ifdef ECLIPSE
 #include "icmaketypes.h"
 #endif
-#define COLORED
-#ifdef COLORED
-#define VT100_Reset      "\33[0m"
-#define VT100_Fg_Black   "\33[30m"
-#define VT100_Fg_Red     "\33[31m"
-#define VT100_Fg_Green   "\33[32m"
-#define VT100_Fg_Yellow  "\33[33m"
-#define VT100_Fg_Blue    "\33[34m"
-#define VT100_Fg_Magenta "\33[35m"
-#define VT100_Fg_Cyan    "\33[36m"
-#define VT100_Fg_White   "\33[37m"
 
-#define VT100_Bg_Black   "\33[40m"
-#define VT100_Bg_Red     "\33[41m"
-#define VT100_Bg_Green   "\33[42m"
-#define VT100_Bg_Yellow  "\33[43m"
-#define VT100_Bg_Blue    "\33[44m"
-#define VT100_Bg_Magenta "\33[45m"
-#define VT100_Bg_Cyan    "\33[46m"
-#define VT100_Bg_White   "\33[47m"
-#else
-#define VT100_Reset
-#define VT100_Fg_Black
-#define VT100_Fg_Red
-#define VT100_Fg_Green
-#define VT100_Fg_Yellow
-#define VT100_Fg_Blue
-#define VT100_Fg_Magenta
-#define VT100_Fg_Cyan
-#define VT100_Fg_White
+string VT100_Reset;
+string VT100_Fg_Black;
+string VT100_Fg_Red;
+string VT100_Fg_Green;
+string VT100_Fg_Yellow;
+string VT100_Fg_Blue;
+string VT100_Fg_Magenta;
+string VT100_Fg_Cyan;
+string VT100_Fg_White;
 
-#define VT100_Bg_Black
-#define VT100_Bg_Red
-#define VT100_Bg_Green
-#define VT100_Bg_Yellow
-#define VT100_Bg_Blue
-#define VT100_Bg_Magenta
-#define VT100_Bg_Cyan
-#define VT100_Bg_White
-#endif
+string VT100_Bg_Black;
+string VT100_Bg_Red;
+string VT100_Bg_Green;
+string VT100_Bg_Yellow;
+string VT100_Bg_Blue;
+string VT100_Bg_Magenta;
+string VT100_Bg_Cyan;
+string VT100_Bg_White;
 
 int 	echostate = ON;
 int 	trace;
 list  cflags;
 list  cxxflags;
 list  ldflags;
+string artifact;
+string host;
+string path;
+bool   verbose;
+
+void InitColors()
+{
+	VT100_Reset      = "\33[0m";
+	VT100_Fg_Black   = "\33[30m";
+	VT100_Fg_Red     = "\33[31m";
+	VT100_Fg_Green   = "\33[32m";
+	VT100_Fg_Yellow  = "\33[33m";
+	VT100_Fg_Blue    = "\33[34m";
+	VT100_Fg_Magenta = "\33[35m";
+	VT100_Fg_Cyan    = "\33[36m";
+	VT100_Fg_White   = "\33[37m";
+
+	VT100_Bg_Black   = "\33[40m";
+	VT100_Bg_Red     = "\33[41m";
+	VT100_Bg_Green   = "\33[42m";
+	VT100_Bg_Yellow  = "\33[43m";
+	VT100_Bg_Blue    = "\33[44m";
+	VT100_Bg_Magenta = "\33[45m";
+	VT100_Bg_Cyan    = "\33[46m";
+	VT100_Bg_White   = "\33[47m";
+}
+
+void fatalerror(string msg)
+{
+  printf("%1%2%3",VT100_Fg_Red,msg,VT100_Reset);
+  exit(1);
+}
+
+string minlen(string s,int n)
+{
+	while(s.length < n)
+	{
+		s = " " + s ;
+	}
+	return s ;
+}
 
 bool setecho(bool b)
 {
@@ -84,12 +104,14 @@ list capture(string cmd)
 	return `cmd`;
 }
 
-void maybe_exec(int dryrun,string cmd)
+int maybe_exec(int dryrun,string cmd)
 {
+  int result ;
 	if (!dryrun)
-		exec(P_CHECK,cmd);
+		result = exec(P_CHECK,cmd);
 	else
 		printf("dry:%1\n",cmd);
+	return result;
 }
 
 void rm(int dryrun,string opt,string args)
@@ -106,6 +128,12 @@ void mkdir(int dryrun,string opt,string args)
 	maybe_exec(dryrun,cmd);
 }
 
+void touch(string file)
+{
+	string cmd ;
+	cmd = strformat("touch %1",file);
+	maybe_exec(false,cmd);
+}
 /*
  * this function parses a compiler generated dependecy file (*.d)
  * dependency files contain lines in the form:
@@ -211,30 +239,53 @@ string gitrev()
 	return version;
 }
 
-void Compile(int dryrun,string prefix,string src,string obj)
+int Compile(int dryrun,string progress,string prefix,string src,string obj)
 {
 	string dfile,depopt,cmd;
 	string options;
-  string cxx ;
-	dfile= change_ext(obj,"d");
-	if (get_ext(src) == "c")
+	string cxx ;
+	string ftype ;
+//	string curdir;
+	string srcpath;
+	int res ;
+//	curdir = chdir(".");
+//	srcpath = get_path(src);
+//	chdir(srcpath);
+//	printf("enter %1\n",srcpath);
+	ftype = get_ext(src);
+	dfile = change_ext(obj,"d");
+//	src = get_base(src);
+//	printf("src=%1 ftype=%2\n",src,ftype);
+//	src = change_ext(src,ftype);
+	//if (!exists(dfile))
+	//  maybe_exec(dryrun,strformat("touch %1",dfile));
+	if (ftype == "c" || ftype == "S")
 	{
 	  cxx = "gcc" ;
 	  options = strformat("%1",cflags);
 	}
-	else
+	else if (ftype == "cpp")
 	{
 	  cxx = "g++" ;
 		options = strformat("%1",cxxflags);
 	}
-	depopt = strformat("-MMD -MP -MF%1  -MT%1",dfile);
-	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,src,obj,depopt);
+	depopt = strformat("-MMD -MP -MF%1 -MT%2",dfile,obj);
+	cmd =strformat("%1%2 %3 -c %4 -o %5 %6",prefix,cxx,options,depopt,obj,src);
 	if (!getecho())
-		printf(VT100_Fg_White "compiling %1" VT100_Reset "\n",obj);
-	maybe_exec(dryrun,cmd);
+	{
+		printf("%1%2%3compiling %4%5\n",VT100_Fg_Green,progress,VT100_Fg_White,obj,VT100_Reset);
+	}
+	if (maybe_exec(dryrun,cmd) != 0)
+	{
+	  if (exists(obj))
+	    rm(dryrun,"",obj);
+	  res = 1;
+	}
+//	chdir(curdir);
+	return res;
 }
 
-list ParseMakefileLine(string line)
+list ParseSection(string line)
 {
 	list lst ;
 	int i ;
@@ -246,73 +297,104 @@ list ParseMakefileLine(string line)
 	return lst;
 }
 
-list ReadMakefile(string file,string config,string host)
+list ReadMakefile(string file,string config,string cfghost)
 {
 	list src ;
 	list pos ;
 	list sec_cfg;
-	string section;
-  string line ;
+	string sec;
+	string cfg;
+	string line ;
 
-  int linecnt ;
+	int linecnt ;
 	int i ;
 	if (trace)
 	{
 	  printf("config=%1\n",config);
-    printf("host=%1\n",host);
+	  printf("host=%1\n",cfghost);
 	}
-  while(1)
-  {
-    pos = fgets(file,(int)pos[1]);
-    if (pos.length == 0)
-    {
-      break;
-    }
-    linecnt++;
-    line = trim(pos[0]);
-    if (line.length != 0 && line[0] != "#") 
-    {
-    	if (line[0] == "[")
-    	{
-    		sec_cfg = ParseMakefileLine(line);
-    		if (sec_cfg.length == 0)
-  			{
-  				printf("syntax error in %1 %2:%3",file,linecnt,line);
-  				exit(1);
-  			}
-  			printf("section=%1\n",sec_cfg);
-    	}
-    	else if (sec_cfg[1] == "COMMON" || sec_cfg[1] == config || sec_cfg[1] == host)
+	while(1)
+	{
+		pos = fgets(file,(int)pos[1]);
+		if (pos.length == 0)
+		{
+		  break;
+		}
+		linecnt++;
+		line = trim(pos[0]);
+		if (line.length != 0 && line[0] != "#")
+		{
+			if (line[0] == "[")
 			{
-				if (sec_cfg[0] == "FILES")
+				sec_cfg = ParseSection(line);
+				if (sec_cfg.length == 0)
+				{
+					fatalerror(strformat("syntax error in %1 %2:%3",file,linecnt,line));
+				}
+				sec = sec_cfg[0];
+				cfg = "";
+				for (i = 1 ; i < sec_cfg.length ; i++)
+				{
+					cfg += sec_cfg[i];
+					if(i < sec_cfg.length-1)
+						cfg += " ";
+				}
+				if (trace)
+				  printf("section=\"%1\" config=\"%2\"\n",sec,cfg);
+			}
+			else if (cfg == "COMMON" ||
+					(config.length && strfind(cfg,config) != -1) ||
+					(host.length &&  strfind(cfg,host) != -1))
+			{
+				if (sec == "FILES")
 				{
 					src += strtok(line," \t");
 				}
-				else if (sec_cfg[0] == "CFLAGS")
+				else if (sec == "CFLAGS")
 				{
 					cflags += strtok(line," \t");
 				}
-				else if (sec_cfg[0] == "CXXFLAGS")
+				else if (sec == "CXXFLAGS")
 				{
 					cxxflags += strtok(line," \t");
 				}
-				else if (sec_cfg[0] == "LDFLAGS")
+				else if (sec == "LDFLAGS")
 				{
 					ldflags += strtok(line," \t");
 				}
+				else if (sec == "ARTIFACT")
+				{
+					artifact = line;
+					//printf("artifact=\"%1\" from \"%2\"\n",artifact,cfg);
+				}
+				else if (sec == "HOST")
+				{
+					host = line;
+					//printf("host=\"%1\" from \"%2\"\n",artifact,cfg);
+				}
+				else if (sec == "PATH")
+				{
+					path = line;
+				}
+				else
+				{
+				  fatalerror(strformat("unknown section %1 in %2\n",sec,file));
+				}
 			}
-    }
+		}
 	}
 	return src;
 }
 
-void Link(int dryrun,string prefix,list objects,string output)
+int Link(int dryrun,string prefix,list objects,string output)
 {
 	string cmd ;
+	int res ;
 	cmd = strformat("%1g++ -o %2 %3 %4",prefix,output,objects,strformat("%1",ldflags));
 	if (!getecho())
-		printf(VT100_Fg_White "linking   %1" VT100_Reset "\n",output);
-	maybe_exec(dryrun,cmd);
+		printf("%1linking   %2%3\n",VT100_Fg_White,output,VT100_Reset);
+	res = maybe_exec(dryrun,cmd);
+	return res ;
 }
 
 bool CheckCompiler(string cc)
@@ -329,8 +411,7 @@ bool CheckCompiler(string cc)
 	for(i = 0 ; i < res.length ; i++)
 		output += res[i];
 	res = strtok(output,"\n");
-	i = strfind(res[0],"(GCC)");
-	if (i != -1)
+  if (strfind(cc+"gcc",res[0]) == 0 || strfind(res[0],"(GCC)") != 0)
 	{
 		if (trace)
 			printf("found %1\n",res[0]);
@@ -350,16 +431,19 @@ string MachineName()
 
 #define CONFIG_OPT    "--config="
 #define HOST_OPT      "--host="
-#define ARTIFACT_OPT  "--artifact="
 
 void main (int argc,list argv)
 {
     list srcfiles;
     list objfiles;
+    list p;
     int i;
     int j;
     int clean;
     int dryrun;
+    int errors;
+    bool colored ;
+    string progress;
     string arg;
     string dir;
     string sourcefile;
@@ -367,14 +451,12 @@ void main (int argc,list argv)
     string bindir       = "bin";
   	string cleancmd ;
     string crosscompile;
-    string host;
     string config       = "debug";
     string versionfile  = "version.h";
+    string makefile     = "makefile.icm";
     string gitversion;
-    string outputfile;
-    string makefile = "makefile.icm";
 
-    setecho(ON);
+    printf("\33[0m");
     for (i = 1 ; i < argv.length-1 ; i++)
     {
     	arg = argv[i];
@@ -384,6 +466,10 @@ void main (int argc,list argv)
 				{
 					clean = 1;
 				}
+				else if (arg == "-v")
+				{
+				  verbose = true;
+				}
 				else if (arg == "-f")
 				{
 					if (i+1 < argv.length-1)
@@ -392,13 +478,17 @@ void main (int argc,list argv)
 					}
 					else
 					{
-						printf(VT100_Fg_Red "you must specify the name of a controlfile" VT100_Reset "\n");
+						printf("%1you must specify the name of a controlfile%2\n",VT100_Fg_Red,VT100_Reset);
 						exit(1);
 					}
 				}
 				else if (arg == "-dry")
 				{
 					dryrun = ON;
+				}
+				else if (arg == "-colored")
+				{
+					colored = true;
 				}
 				else if (arg == "-trace")
 				{
@@ -407,7 +497,6 @@ void main (int argc,list argv)
 				else if ((j = strfind(arg,HOST_OPT)) == 0)
 				{
 					host = substr(arg,HOST_OPT.length,arg.length);
-					crosscompile = host+"-";
 				}
 				else if ((j = strfind(arg,CONFIG_OPT)) == 0)
 				{
@@ -418,15 +507,6 @@ void main (int argc,list argv)
 						exit(1);
 					}
 				}
-				else if ((j = strfind(arg,ARTIFACT_OPT)) == 0)
-				{
-					outputfile = substr(arg,ARTIFACT_OPT.length,arg.length);
-					if (outputfile.length == 0)
-					{
-						printf("you must specify an artifact\n");
-						exit(1);
-					}
-				}
 				else
 				{
 					printf("unknown argument \"%1\"\n",arg);
@@ -434,27 +514,47 @@ void main (int argc,list argv)
 				}
     	}
     }
+
+    if (colored)
+    	InitColors();
+
+    if (!verbose)
+      setecho(OFF);
+
     if (!exists(makefile))
     {
     	printf("%1 does not exist\n",makefile);
     	exit(1);
     }
+    srcfiles = ReadMakefile(makefile,config,host);
+
+    if (path.length)
+    {
+    	arg = getenv("PATH")[1];
+   		arg = strformat("PATH=%1:%2",path,arg);
+    	printf("%1\n",arg);
+    	putenv(arg);
+    }
+    if (host.length != 0)
+    	crosscompile = host+"-";
+
     if (crosscompile.length != 0 && CheckCompiler(crosscompile) == false)
     {
     	printf("compiler %1gcc does not exist\n",crosscompile);
     	exit(1);
     }
+
     if (host.length == 0)
     {
       host = MachineName();
     }
     
-    
-    srcfiles = ReadMakefile(makefile,config,host);
-    if (trace)
+    if (artifact.length == 0)
     {
-    	printf("srcfiles:%1\ncflags=%2\ncxxflags=%3\nldflags=%4\n",srcfiles,cflags,cxxflags,ldflags);
+      fatalerror(strformat("i can't find a [ARTIFACT ] section in %1\n",makefile));
+      exit(1);
     }
+/*
     gitversion = gitrev();
     if (trace)
     	printf("git rev :\"%1\"\n",gitversion);
@@ -463,25 +563,29 @@ void main (int argc,list argv)
     fprintf(versionfile,"#define VERSION_H_INCLUDED\n\n");
     fprintf(versionfile,"#define GIT_VERSION \"%1\"\n\n",gitversion);
     fprintf(versionfile,"#endif\n");
+*/
     bindir += strformat("/%1",config);
     if (trace)
       printf("bindir = %1\n",bindir);
     if (!exists(bindir))
     	maybe_exec(false,strformat("mkdir -p %1",bindir));
 
-    if (outputfile.length == 0)
-    	outputfile="output";
-   	outputfile = strformat("%1/%2",bindir,outputfile);
+    if (artifact.length == 0)
+    	artifact="output";
+   	artifact = strformat("%1/%2",bindir,artifact);
     if (clean)
     {
+      printf("%1Clean configuration %2 for host %3 in %4\n",VT100_Fg_Yellow,config,host,bindir,VT100_Reset);
     	rm(dryrun,"-rf",bindir+"/*");
     }
     else
     {
+      printf("%1Building configuration %2 for host %3 in %4\n",VT100_Fg_Yellow,config,host,bindir, VT100_Reset);
 			if (srcfiles.length)
 			{
 					for (i = 0; i < srcfiles.length ; i++)  
 					{
+							progress = strformat("%1/%2 ",minlen((string)i,4),srcfiles.length,((i+1)*100)/srcfiles.length);
 							sourcefile = trim(element (i, srcfiles));   // get the name from the list
 							objfile = change_ext(strformat("%1/%2",bindir,sourcefile),"o");
 							dir = get_path(objfile);
@@ -489,12 +593,22 @@ void main (int argc,list argv)
 								mkdir(false,"-p",dir);
 							if (MustBuild(trace,objfile))
 							{
-								Compile(dryrun,crosscompile,sourcefile,objfile);
+								if (Compile(dryrun,progress,crosscompile,sourcefile,objfile))
+								  errors++;
+							}
+							else
+							{
+								//printf("%1 Unchanged %2\n",progress,objfile);
 							}
 							objfiles += (list)objfile;
 					}
-					Link(dryrun,crosscompile,objfiles,outputfile);
+					if (Link(dryrun,crosscompile,objfiles,artifact))
+					  errors++;
 			}
+			if (errors == 0)
+			  printf("%1Building configuration %2 for host %3 in %4 completed\n",VT100_Fg_Yellow,config,host,bindir, VT100_Reset);
+			else
+			  rm(dryrun,"-f",artifact);
     }
 }
 
