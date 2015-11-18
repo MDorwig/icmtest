@@ -1,0 +1,50 @@
+/*
+ * ctype.im
+ * character classification 
+ * Created on: 28.10.2015
+ * Author: dorwig
+ */
+
+int isdigit(string s)
+{
+	return s[0] >= "0" & s[0] <= "9";
+}
+
+int isalpha(string s)
+{
+	int res = 0 ;
+	if ((s[0] >= "a" && s[0] <= "z") || (s[0] >= "A" && s[0] <= "Z"))
+		res = 1 ;
+	return res ;
+}
+
+int isalnum(string s)
+{
+	int res ;
+	res = isalpha(s[0]);
+	if (!res)
+		res = isdigit(s[0]);
+	return res ;
+}
+
+int isspace(string s)
+{
+	int res = 0;
+	if (s[0] == "\t" || s[0] == " " || s[0] == "\r" || s[0] == "\n")
+		res = 1 ;
+	return res ;
+}
+
+int isidentstart(string s)
+{
+	return (isalpha(s[0]) | s[0] == "_") ;
+}
+
+int isident(string s)
+{
+	int res = 0 ;
+	if (isalnum(s) || s[0] == "_")
+		res = 1 ;
+	return res ;
+}
+
